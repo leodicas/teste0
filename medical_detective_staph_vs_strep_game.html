@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InfectoDetective: Staph vs Strep</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- QR Code Library for dynamic QR generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#0B0F19',
+              card: '#111827',
+              border: '#1F2937',
+              accent: '#06B6D4',
+              neonGreen: '#10B981',
+              neonPurple: '#8B5CF6',
+              warning: '#F59E0B',
+              danger: '#EF4444'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #080C14;
+      color: #F3F4F6;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    .glass-card {
+      background: rgba(17, 24, 39, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glow-cyan {
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.25);
+    }
+    .glow-green {
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
+    }
+    .glow-purple {
+      box-shadow: 0 0 20px rgba(139, 92, 246, 0.25);
+    }
+
+    /* Flip Card Animation */
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+    .transform-style-3d {
+      transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .backface-hidden {
+      backface-visibility: hidden;
+    }
+    .rotate-y-180 {
+      transform: rotateY(180deg);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0B0F19;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1F2937;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #06B6D4;
+    }
+
+    .pulse-glow {
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 8px rgba(6, 182, 212, 0.3); }
+      50% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.7); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-black">
+
+  <!-- HEADER & HUD -->
+  <header class="sticky top-0 z-50 glass-card border-b border-gray-800 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <!-- Title & Status -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="app.showScreen('welcome')">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-emerald-500 flex items-center justify-center shadow-lg">
+          <i class="fa-solid fa-microscope text-white text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent">
+            INFECTO<span class="text-white font-black">DETECTIVE</span>
+          </h1>
+          <p class="text-xs text-gray-400 font-mono">Staphylococcus vs. Streptococcus</p>
+        </div>
+      </div>
+
+      <!-- Live Score Board & Controls -->
+      <div class="flex items-center space-x-3 sm:space-x-6">
+        <!-- Streak -->
+        <div class="flex items-center space-x-2 bg-gray-900/80 px-3 py-1.5 rounded-lg border border-gray-800">
+          <i class="fa-solid fa-fire text-amber-500 animate-bounce"></i>
+          <span class="text-xs text-gray-400 uppercase font-semibold hidden sm:inline">Streak</span>
+          <span id="hud-streak" class="text-sm font-bold font-mono text-amber-400">0</span>
+        </div>
+
+        <!-- Score -->
+        <div class="flex items-center space-x-2 bg-gray-900/80 px-3 py-1.5 rounded-lg border border-gray-800">
+          <i class="fa-solid fa-trophy text-cyan-400"></i>
+          <span class="text-xs text-gray-400 uppercase font-semibold hidden sm:inline">Pontos</span>
+          <span id="hud-score" class="text-sm font-bold font-mono text-cyan-300">0</span>
+        </div>
+
+        <!-- Audio Toggle -->
+        <button id="btn-audio" onclick="app.toggleSound()" class="p-2 rounded-lg bg-gray-900 border border-gray-800 text-gray-300 hover:text-cyan-400 hover:border-cyan-500 transition">
+          <i id="audio-icon" class="fa-solid fa-volume-high"></i>
+        </button>
+
+        <!-- Fullscreen Button -->
+        <button onclick="app.toggleFullscreen()" class="p-2 rounded-lg bg-gray-900 border border-gray-800 text-gray-300 hover:text-cyan-400 hover:border-cyan-500 transition hidden sm:inline-block" title="Modo Apresentador / Tela Cheia">
+          <i class="fa-solid fa-expand"></i>
+        </button>
+
+        <!-- Guide Modal Toggle -->
+        <button onclick="app.openGuide()" class="px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 text-xs font-semibold flex items-center space-x-2 transition">
+          <i class="fa-solid fa-book-medical"></i>
+          <span class="hidden md:inline">Chave Dicotômica</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-1 flex flex-col justify-center">
+
+    <!-- SCREEN 1: WELCOME / CONFIGURATION -->
+    <section id="screen-welcome" class="space-y-8 my-auto">
+      <div class="text-center max-w-3xl mx-auto space-y-4">
+        <span class="px-3 py-1 text-xs font-semibold font-mono tracking-widest text-emerald-400 bg-emerald-950/60 border border-emerald-800 rounded-full uppercase">
+          Simulador de Diagnóstico Microbiológico
+        </span>
+        <h2 class="text-4xl sm:text-6xl font-black tracking-tight text-white">
+          Desvende o Agente Infectante
+        </h2>
+        <p class="text-gray-400 text-base sm:text-lg leading-relaxed">
+          Analise relatos clínicos, descubra os testes laboratoriais chave (<span class="text-cyan-400 font-semibold">Catalase, Coagulase, Hemólise, Antibiogramas</span>) e confirme a etiologia bacteriana em tempo real.
+        </p>
+      </div>
+
+      <!-- Mode Selector Cards -->
+      <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <!-- Clinical Detective Mode -->
+        <div onclick="app.startMode('detective')" class="glass-card rounded-2xl p-6 cursor-pointer border border-gray-800 hover:border-cyan-500/60 hover:glow-cyan transition-all transform hover:-translate-y-1 group">
+          <div class="flex items-center justify-between mb-4">
+            <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-2xl group-hover:bg-cyan-500 group-hover:text-black transition">
+              <i class="fa-solid fa-user-doctor"></i>
+            </div>
+            <span class="text-xs font-mono px-2.5 py-1 rounded-md bg-cyan-950 text-cyan-400 border border-cyan-800">Modo Principal</span>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2 group-hover:text-cyan-300">Detetive Clínico</h3>
+          <p class="text-sm text-gray-400">Análise detalhada de casos reais. Revele as pistas laboratoriais passo a passo para elucidar o diagnóstico bacteriano.</p>
+          <div class="mt-6 flex items-center text-xs font-bold text-cyan-400 group-hover:translate-x-1 transition">
+            INICIAR INVESTIGAÇÃO <i class="fa-solid fa-arrow-right ml-2"></i>
+          </div>
+        </div>
+
+        <!-- Fast Quiz Mode -->
+        <div onclick="app.startMode('quiz')" class="glass-card rounded-2xl p-6 cursor-pointer border border-gray-800 hover:border-emerald-500/60 hover:glow-green transition-all transform hover:-translate-y-1 group">
+          <div class="flex items-center justify-between mb-4">
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-2xl group-hover:bg-emerald-500 group-hover:text-black transition">
+              <i class="fa-solid fa-bolt"></i>
+            </div>
+            <span class="text-xs font-mono px-2.5 py-1 rounded-md bg-emerald-950 text-emerald-400 border border-emerald-800">Contra o Relógio</span>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2 group-hover:text-emerald-300">Show Quiz Rápido</h3>
+          <p class="text-sm text-gray-400">Perguntas diretas sobre diferenciação e testes bioquímicos com temporizador para testar agilidade microbiológica.</p>
+          <div class="mt-6 flex items-center text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition">
+            INICIAR DESAFIO <i class="fa-solid fa-arrow-right ml-2"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Presenter & Class Join Card -->
+      <div class="glass-card max-w-4xl mx-auto rounded-2xl p-6 border border-gray-800 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="space-y-2 text-center md:text-left">
+          <div class="flex items-center justify-center md:justify-start space-x-2 text-amber-400 font-semibold text-sm">
+            <i class="fa-solid fa-chalkboard-user"></i>
+            <span>Painel do Apresentador / Alunos</span>
+          </div>
+          <p class="text-xs text-gray-400 max-w-md">
+            Compartilhe esta tela no datashow! Alunos podem acompanhar no celular lendo o QR Code abaixo. Use atalhos de teclado: <kbd class="px-1.5 py-0.5 bg-gray-800 rounded text-cyan-300 font-mono">Espaço</kbd> (Revelar Pista) e <kbd class="px-1.5 py-0.5 bg-gray-800 rounded text-cyan-300 font-mono">Setas</kbd> (Navegar).
+          </p>
+        </div>
+
+        <div class="flex items-center space-x-4 bg-gray-900/90 p-3 rounded-xl border border-gray-800">
+          <div id="qrcode" class="p-1 bg-white rounded-lg"></div>
+          <div class="text-xs space-y-1">
+            <div class="font-bold text-gray-200">Acesso Mobile:</div>
+            <div id="app-url-text" class="font-mono text-cyan-400 truncate max-w-[150px] text-[10px]">github.io/infecto</div>
+            <button onclick="app.copyLink()" class="px-2 py-1 rounded bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 text-[10px] w-full border border-gray-700 transition">
+              <i class="fa-solid fa-copy mr-1"></i> Copiar Link
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 2: CLINICAL DETECTIVE GAMEPLAY -->
+    <section id="screen-detective" class="hidden space-y-6">
+      <!-- Progress Bar & Timer -->
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex-1 bg-gray-900 rounded-full h-2.5 overflow-hidden border border-gray-800">
+          <div id="game-progress-bar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full w-0 transition-all duration-300"></div>
+        </div>
+        <span id="case-counter" class="text-xs font-mono font-bold text-gray-400">Caso 1 / 7</span>
+        <!-- Optional Timer -->
+        <div id="detective-timer-badge" class="hidden items-center space-x-1 font-mono text-xs px-2.5 py-1 rounded bg-red-950/60 border border-red-800 text-red-400">
+          <i class="fa-solid fa-stopwatch"></i>
+          <span id="detective-timer">45s</span>
+        </div>
+      </div>
+
+      <!-- Main Case Panel -->
+      <div class="grid lg:grid-cols-12 gap-6 items-start">
+        <!-- Left Column: Patient History & Clinical Presentation -->
+        <div class="lg:col-span-5 glass-card rounded-2xl p-6 border border-gray-800 space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold font-mono px-2.5 py-1 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 flex items-center gap-1.5">
+              <i class="fa-solid fa-clipboard-user"></i> <span id="case-category">Dermatologia / Infecto</span>
+            </span>
+            <span id="case-difficulty" class="text-xs font-bold font-mono text-emerald-400">Nível: Média</span>
+          </div>
+
+          <h3 id="case-title" class="text-xl font-extrabold text-white">Paciente com Lesões Bulosas e Melicéricas</h3>
+
+          <!-- Patient Profile -->
+          <div class="bg-gray-900/80 rounded-xl p-4 border border-gray-800/80 space-y-2 text-sm">
+            <div class="flex items-center space-x-2 text-gray-300 font-semibold border-b border-gray-800 pb-2">
+              <i class="fa-solid fa-hospital-user text-cyan-400"></i>
+              <span id="patient-demographics">Homem, 24 anos, Atleta</span>
+            </div>
+            <p id="patient-history" class="text-gray-300 leading-relaxed text-xs sm:text-sm">
+              Apresenta quadro de 3 dias de evolução com pústulas que se romperam formando crostas amareladas (melicéricas) na região perioral e membros superiores. Sem febre.
+            </p>
+          </div>
+
+          <!-- Vital Signs / Labs Overview -->
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div class="bg-gray-900/60 p-2.5 rounded-lg border border-gray-800">
+              <span class="text-gray-500 block">Sinais Vitais</span>
+              <span id="vital-signs" class="font-mono text-gray-300 font-semibold">Afebril, PA 120/80</span>
+            </div>
+            <div class="bg-gray-900/60 p-2.5 rounded-lg border border-gray-800">
+              <span class="text-gray-500 block">Amostra Coletada</span>
+              <span id="sample-type" class="font-mono text-cyan-300 font-semibold">Exsudato de lesão</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Interactive Lab Clues & Diagnosis -->
+        <div class="lg:col-span-7 space-y-6">
+          <!-- Clues Grid -->
+          <div class="glass-card rounded-2xl p-6 border border-gray-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-flask-vial text-cyan-400"></i>
+                <h4 class="font-bold text-white text-sm">Bancada de Testes Microbiológicos</h4>
+              </div>
+              <span class="text-xs text-gray-400">Clique no card ou aperte <kbd class="px-1 bg-gray-800 rounded font-mono">Espaço</kbd></span>
+            </div>
+
+            <div id="clues-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- Clues Cards dynamically rendered here -->
+            </div>
+          </div>
+
+          <!-- Answer Options & Diagnostic Console -->
+          <div class="glass-card rounded-2xl p-6 border border-gray-800 space-y-4">
+            <h4 class="font-bold text-white text-sm flex items-center space-x-2">
+              <i class="fa-solid fa-dna text-emerald-400"></i>
+              <span>Selecione o Agente Etiológico Suspeito:</span>
+            </h4>
+
+            <div id="options-container" class="grid sm:grid-cols-2 gap-3">
+              <!-- Options dynamically rendered here -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Explanation Modal/Drawer after answering -->
+      <div id="explanation-box" class="hidden glass-card rounded-2xl p-6 border border-cyan-500/40 bg-gradient-to-br from-gray-900 via-gray-900 to-cyan-950/30 space-y-4 animate-fade-in">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div id="result-badge-icon" class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div>
+              <h4 id="result-title" class="font-extrabold text-white text-lg">Diagnóstico Correto!</h4>
+              <p id="result-subtitle" class="text-xs text-cyan-300 font-mono">Microbiologia Clínica Confirmada</p>
+            </div>
+          </div>
+          <button onclick="app.nextCase()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 text-black font-bold text-sm hover:opacity-90 transition shadow-lg flex items-center space-x-2">
+            <span>Próximo Caso</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+
+        <div id="result-explanation" class="text-sm text-gray-300 leading-relaxed border-t border-gray-800 pt-3 space-y-2">
+          <!-- Rationale details generated dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- SCREEN 3: FAST QUIZ GAMEPLAY -->
+    <section id="screen-quiz" class="hidden space-y-6 max-w-3xl mx-auto w-full">
+      <div class="flex items-center justify-between bg-gray-900 p-4 rounded-xl border border-gray-800">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-bolt text-emerald-400 text-xl"></i>
+          <span id="quiz-counter" class="font-mono font-bold text-sm text-gray-300">Questão 1/10</span>
+        </div>
+        <div class="flex items-center space-x-2 font-mono text-amber-400 bg-amber-950/40 border border-amber-800/60 px-3 py-1 rounded-lg">
+          <i class="fa-solid fa-clock"></i>
+          <span id="quiz-timer" class="font-bold text-lg">15s</span>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-6 border border-gray-800 space-y-6">
+        <h3 id="quiz-question" class="text-xl font-bold text-white leading-snug">
+          Qual o teste inicial para diferenciar a família Staphylococcaceae de Streptococcaceae?
+        </h3>
+
+        <div id="quiz-options" class="space-y-3">
+          <!-- Quiz options dynamically populated -->
+        </div>
+      </div>
+
+      <div id="quiz-feedback" class="hidden glass-card p-4 rounded-xl text-sm leading-relaxed"></div>
+    </section>
+
+    <!-- SCREEN 4: FINAL SUMMARY & RANKING -->
+    <section id="screen-summary" class="hidden text-center space-y-8 max-w-2xl mx-auto py-8">
+      <div class="glass-card rounded-3xl p-8 border border-gray-800 space-y-6">
+        <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center mx-auto text-4xl text-black shadow-xl">
+          <i class="fa-solid fa-award"></i>
+        </div>
+
+        <div class="space-y-2">
+          <h2 class="text-3xl font-black text-white">Investigação Concluída!</h2>
+          <p id="summary-subtitle" class="text-gray-400 text-sm">Você demonstrou excelente raciocínio microbiológico.</p>
+        </div>
+
+        <!-- Metrics -->
+        <div class="grid grid-cols-3 gap-4 bg-gray-900/80 p-4 rounded-2xl border border-gray-800 font-mono">
+          <div>
+            <span class="text-xs text-gray-500 block">Pontuação</span>
+            <span id="final-score" class="text-2xl font-black text-cyan-400">0</span>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500 block">Maior Streak</span>
+            <span id="final-streak" class="text-2xl font-black text-amber-400">0</span>
+          </div>
+          <div>
+            <span class="text-xs text-gray-500 block">Precisão</span>
+            <span id="final-accuracy" class="text-2xl font-black text-emerald-400">0%</span>
+          </div>
+        </div>
+
+        <div class="pt-4 flex flex-col sm:flex-row gap-4 justify-center">
+          <button onclick="app.showScreen('welcome')" class="px-6 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-bold text-sm transition border border-gray-700">
+            <i class="fa-solid fa-house mr-2"></i> Menu Principal
+          </button>
+          <button onclick="app.restartCurrentMode()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 text-black font-bold text-sm hover:opacity-90 transition shadow-lg">
+            <i class="fa-solid fa-rotate-right mr-2"></i> Jogar Novamente
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: DICHOTOMOUS KEY & REFERENCE GUIDE -->
+  <div id="guide-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-card max-w-4xl w-full max-h-[90vh] rounded-2xl border border-cyan-500/30 flex flex-col overflow-hidden">
+      <!-- Modal Header -->
+      <div class="p-4 bg-gray-900 border-b border-gray-800 flex items-center justify-between">
+        <div class="flex items-center space-x-2 text-cyan-400 font-bold">
+          <i class="fa-solid fa-sitemap"></i>
+          <span>Guia Prático de Diferenciação: Staph vs Strep</span>
+        </div>
+        <button onclick="app.closeGuide()" class="text-gray-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 overflow-y-auto space-y-6 text-sm">
+        <!-- Step 1: Catalase -->
+        <div class="space-y-2">
+          <h4 class="font-bold text-white flex items-center space-x-2">
+            <span class="w-6 h-6 rounded-full bg-cyan-500 text-black text-xs font-mono font-bold flex items-center justify-center">1</span>
+            <span>Gram & Catalase (Diferenciação Primária)</span>
+          </h4>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-gray-900/80 p-3 rounded-xl border border-cyan-900/50">
+              <span class="font-bold text-cyan-400 font-mono text-xs">CATALASE POSITIVA (+)</span>
+              <p class="text-xs text-gray-300 mt-1">Cocos em cachos $\rightarrow$ <strong>Staphylococcus spp.</strong></p>
+            </div>
+            <div class="bg-gray-900/80 p-3 rounded-xl border border-purple-900/50">
+              <span class="font-bold text-purple-400 font-mono text-xs">CATALASE NEGATIVA (-)</span>
+              <p class="text-xs text-gray-300 mt-1">Cocos em pares/cadeias $\rightarrow$ <strong>Streptococcus / Enterococcus spp.</strong></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Staph Branch -->
+        <div class="space-y-2 border-t border-gray-800 pt-4">
+          <h4 class="font-bold text-cyan-300 flex items-center space-x-2">
+            <i class="fa-solid fa-vial"></i>
+            <span>Diferenciação do Gênero Staphylococcus</span>
+          </h4>
+          <div class="grid md:grid-cols-3 gap-3 text-xs">
+            <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-1">
+              <span class="font-bold text-emerald-400">Coagulase Positiva (+)</span>
+              <p class="text-gray-300 font-semibold">S. aureus</p>
+              <p class="text-[11px] text-gray-400">Beta-hemolítico, pigmento dourado, fermenta Manitol.</p>
+            </div>
+            <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-1">
+              <span class="font-bold text-amber-400">Coagulase (-) / Sensível a Novobiocina</span>
+              <p class="text-gray-300 font-semibold">S. epidermidis</p>
+              <p class="text-[11px] text-gray-400">Gama/Alfa-hemolítico, infecção de próteses/cateteres.</p>
+            </div>
+            <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-1">
+              <span class="font-bold text-red-400">Coagulase (-) / Resistente a Novobiocina</span>
+              <p class="text-gray-300 font-semibold">S. saprophyticus</p>
+              <p class="text-[11px] text-gray-400">ITU em jovens sexualmente ativas.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Strep Branch -->
+        <div class="space-y-2 border-t border-gray-800 pt-4">
+          <h4 class="font-bold text-purple-300 flex items-center space-x-2">
+            <i class="fa-solid fa-vial"></i>
+            <span>Diferenciação do Gênero Streptococcus (Padrão de Hemólise)</span>
+          </h4>
+          <div class="grid md:grid-cols-3 gap-3 text-xs">
+            <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-1">
+              <span class="font-bold text-red-400">Beta-Hemolíticos (Total)</span>
+              <p class="text-gray-300"><strong>S. pyogenes (Grupo A):</strong> Sensível à Bacitracina, PYR (+).</p>
+              <p class="text-gray-300"><strong>S. agalactiae (Grupo B):</strong> Resistente à Bacitracina, CAMP (+).</p>
+            </div>
+            <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-1">
+              <span class="font-bold text-emerald-400">Alfa-Hemolíticos (Parcial)</span>
+              <p class="text-gray-300"><strong>S. pneumoniae:</strong> Sensível à Optoquina, Solúvel em Bile, Diplococo em lança.</p>
+              <p class="text-gray-300"><strong>S. do Grupo Viridans:</strong> Resistente à Optoquina, Insolúvel em Bile.</p>
+            </div>
+            <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-1">
+              <span class="font-bold text-gray-400">Gama-Hemolíticos (Ausente)</span>
+              <p class="text-gray-300"><strong>Enterococcus spp. / Strep não hemolíticos:</strong> Crescimento em NaCl 6.5%, Biles Esculina (+).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="glass-card border-t border-gray-800 py-3 px-4 text-center text-xs text-gray-500">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <span>Apresentação Acadêmica de Infectologia - Microorganismos Cocos Gram-Positivos</span>
+      <span class="font-mono text-cyan-500/80">GitHub Pages Ready • Sound via Web Audio API</span>
+    </div>
+  </footer>
+
+  <script>
+    /* ===================================================================
+       1. WEB AUDIO API SYNTHESIZER (No External Sound File Dependencies)
+       =================================================================== */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioCtx();
+        }
+      }
+
+      playSuccess() {
+        if (!this.enabled) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(523.25, now); // C5
+        osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1); // E5
+        osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2); // G5
+        osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.3); // C6
+
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      }
+
+      playError() {
+        if (!this.enabled) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      }
+
+      playFlip() {
+        if (!this.enabled) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+
+      playTick() {
+        if (!this.enabled) return;
+        this.init();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800, now);
+
+        gain.gain.setValueAtTime(0.03, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.03);
+      }
+    }
+
+    const audio = new SoundEngine();
+
+    /* ===================================================================
+       2. CLINICAL CASES DATABASE (INFECTOLOGY & MICROBIOLOGY)
+       =================================================================== */
+    const CLINICAL_CASES = [
+      {
+        id: 1,
+        title: "Impetigo Crostoso em Criança",
+        category: "Infeção de Pele e Partes Moles",
+        difficulty: "Fácil",
+        demographics: "Menino, 6 anos, escolar",
+        history: "Apresenta lesões vesiculosas ao redor do nariz e boca com posterior formação de crostas amareladas espessas (melicéricas). Sem sintomas sistêmicos.",
+        vitalSigns: "Afebril (36.8°C), FC 85 bpm",
+        sampleType: "Swab do exsudato das crostas",
+        clues: [
+          { title: "Bacterioscopia (Gram)", value: "Cocos Gram-positivos em agrupamentos irregulares (tipo cachos)", icon: "fa-bacteria" },
+          { title: "Teste da Catalase", value: "POSITIVO (Formação intensa de bolhas de O₂)", icon: "fa-vial" },
+          { title: "Teste da Coagulase", value: "POSITIVO (Formação de coágulo em tubo)", icon: "fa-vial-circle-check" },
+          { title: "Ágar Sangue de Carneiro", value: "Colônias amarelas com zona nítida de Beta-hemólise", icon: "fa-circle-dot" }
+        ],
+        options: [
+          "Staphylococcus aureus",
+          "Streptococcus pyogenes",
+          "Staphylococcus epidermidis",
+          "Streptococcus agalactiae"
+        ],
+        correctIndex: 0,
+        explanation: "<strong>Staphylococcus aureus</strong> é catalase e coagulase positivo, apresentando frequentemente colônias pigmentadas e beta-hemolíticas. É uma das causas clássicas de impetigo bolhoso e não bolhoso."
+      },
+      {
+        id: 2,
+        title: "Faringoamigdalite Purulenta com Exantema",
+        category: "Infectologia Pediátrica / ORL",
+        difficulty: "Fácil",
+        demographics: "Menina, 9 anos",
+        history: "Apresenta dor de garganta intensa, febre alta (38.9°C), exsudato esbranquiçado nas amígdalas, adenopatia cervical dolorosa e exantema maculopapular áspero ('lixa').",
+        vitalSigns: "Tax 38.9°C, PA 105/70 mmHg",
+        sampleType: "Swab de orofaringe",
+        clues: [
+          { title: "Bacterioscopia (Gram)", value: "Cocos Gram-positivos em cadeias curtas e longas", icon: "fa-bacteria" },
+          { title: "Teste da Catalase", value: "NEGATIVO (Ausência de efervescência)", icon: "fa-vial" },
+          { title: "Padrão de Hemólise", value: "BETA-hemólise completa em Ágar Sangue", icon: "fa-droplet" },
+          { title: "Teste de Bacitracina (Disco A)", value: "SENSÍVEL (Halo de inibição amplo)", icon: "fa-tablets" }
+        ],
+        options: [
+          "Streptococcus pneumoniae",
+          "Streptococcus pyogenes (Grupo A)",
+          "Staphylococcus aureus",
+          "Streptococcus do Grupo Viridans"
+        ],
+        correctIndex: 1,
+        explanation: "<strong>Streptococcus pyogenes (GAS)</strong> é a principal causa bacteriana de faringite exsudativa. É catalase negativo, beta-hemolítico e estritamente sensível à Bacitracina."
+      },
+      {
+        id: 3,
+        title: "Infeção de Prótese Valvar Cardíaca",
+        category: "Cardiologia / Infecção Hospitalar",
+        difficulty: "Média",
+        demographics: "Homem, 68 anos, Pós-Op de troca valvar",
+        history: "Apresenta febre de origem indeterminada e mal-estar 2 meses após cirurgia de substituição de válvula aórtica por prótese biológica. Hemoculturas positivas.",
+        vitalSigns: "Tax 38.2°C, Sopro sistólico novo em foco aórtico",
+        sampleType: "Hemocultura (3 pares)",
+        clues: [
+          { title: "Bacterioscopia (Gram)", value: "Cocos Gram-positivos em cachos", icon: "fa-bacteria" },
+          { title: "Teste da Catalase", value: "POSITIVO", icon: "fa-vial" },
+          { title: "Teste da Coagulase", value: "NEGATIVO (Staphylococcus Coag-negativo)", icon: "fa-ban" },
+          { title: "Disco de Novobiocina", value: "SENSÍVEL (Halo > 16mm)", icon: "fa-capsules" }
+        ],
+        options: [
+          "Staphylococcus aureus",
+          "Staphylococcus epidermidis",
+          "Staphylococcus saprophyticus",
+          "Enterococcus faecalis"
+        ],
+        correctIndex: 1,
+        explanation: "<strong>Staphylococcus epidermidis</strong> é o principal agente de infecções de dispositivos médicos e próteses devido à sua capacidade de formar biofilme. É um Staph coagulase negativo (CoNS) sensível à Novobiocina."
+      },
+      {
+        id: 4,
+        title: "Pneumonia Adquirida na Comunidade (PAC) Grave",
+        category: "Pneumologia / Terapia Intensiva",
+        difficulty: "Média",
+        demographics: "Homem, 55 anos, etilista",
+        history: "Quadro súbito de calafrios, febre alta, dor torácica pleurítica e escarro ferruginoso. Radiografia de tórax revela consolidação lobar em lobo inferior direito.",
+        vitalSigns: "Tax 39.1°C, FR 28 irpm, SpO2 89% em ar ambiente",
+        sampleType: "Escarro e Hemocultura",
+        clues: [
+          { title: "Bacterioscopia (Gram)", value: "Diplococos Gram-positivos em formato de lança (lanceolados)", icon: "fa-bacteria" },
+          { title: "Teste da Catalase", value: "NEGATIVO", icon: "fa-vial" },
+          { title: "Padrão de Hemólise", value: "ALFA-hemólise (colônias esverdeadas com autólise central)", icon: "fa-circle-notch" },
+          { title: "Teste de Optoquina & Bile", value: "SENSÍVEL à Optoquina / Solúvel em Bile", icon: "fa-flask" }
+        ],
+        options: [
+          "Streptococcus pneumoniae",
+          "Streptococcus do Grupo Viridans",
+          "Klebsiella pneumoniae",
+          "Streptococcus agalactiae"
+        ],
+        correctIndex: 0,
+        explanation: "<strong>Streptococcus pneumoniae (Pneumococo)</strong> é caracterizado por diplococos Gram-positivos lanceolados, alfa-hemolíticos, sensíveis à optoquina e solúveis em sais biliares."
+      },
+      {
+        id: 5,
+        title: "Infecção do Trato Urinário em Mulher Jovem",
+        category: "Urologia / Infectologia",
+        difficulty: "Média",
+        demographics: "Mulher, 22 anos, sexualmente ativa",
+        history: "Apresenta disúria intensa, polaciúria e urgência miccional há 24 horas. Sem febre ou dor em flancos (Sinal de Giordano negativo). EAS com piúria maciça.",
+        vitalSigns: "Tax 36.6°C, PA 115/75 mmHg",
+        sampleType: "Urocultura (Jato médio)",
+        clues: [
+          { title: "Bacterioscopia (Gram)", value: "Cocos Gram-positivos em arranjos irregulares", icon: "fa-bacteria" },
+          { title: "Teste da Catalase", value: "POSITIVO", icon: "fa-vial" },
+          { title: "Teste da Coagulase", value: "NEGATIVO", icon: "fa-ban" },
+          { title: "Disco de Novobiocina", value: "RESISTENTE (Sem halo ou halo < 16mm)", icon: "fa-shield-virus" }
+        ],
+        options: [
+          "Escherichia coli",
+          "Staphylococcus aureus",
+          "Staphylococcus epidermidis",
+          "Staphylococcus saprophyticus"
+        ],
+        correctIndex: 3,
+        explanation: "<strong>Staphylococcus saprophyticus</strong> é a segunda causa mais frequente de cistite não complicada em mulheres jovens. É um Staph coagulase-negativo caracterizado pela resistência à Novobiocina."
+      },
+      {
+        id: 6,
+        title: "Sepsis Neonatal Precoce",
+        category: "Neonatologia / Pediatria",
+        difficulty: "Difícil",
+        demographics: "Recém-nascido, 18 horas de vida",
+        history: "Parto vaginal com história materna de bolsa rota há > 18 horas sem profilaxia intraparto. RNC evolui com desconforto respiratório, hipotermia e instabilidade hemodinâmica.",
+        vitalSigns: "Tax 35.4°C, FC 182 bpm, Gemência acentuada",
+        sampleType: "Hemocultura e Líquor (LCR)",
+        clues: [
+          { title: "Bacterioscopia (Gram)", value: "Cocos Gram-positivos em cadeias", icon: "fa-bacteria" },
+          { title: "Teste da Catalase", value: "NEGATIVO", icon: "fa-vial" },
+          { title: "Hemólise & Bacitracina", value: "BETA-hemolítico discreto / RESISTENTE à Bacitracina", icon: "fa-vial-circle-check" },
+          { title: "Teste de CAMP / Hippurato", value: "POSITIVO (Sinergismo de hemólise em 'ponta de flecha')", icon: "fa-arrow-trend-up" }
+        ],
+        options: [
+          "Streptococcus agalactiae (Grupo B)",
+          "Streptococcus pyogenes (Grupo A)",
+          "Listeria monocytogenes",
+          "Streptococcus pneumoniae"
+        ],
+        correctIndex: 0,
+        explanation: "<strong>Streptococcus agalactiae (GBS)</strong> é a principal causa de sepse e meningite neonatal precoce. É beta-hemolítico, resistente à bacitracina e apresenta teste de CAMP positivo (potencializa hemólise do S. aureus)."
+      },
+      {
+        id: 7,
+        title: "Endocardite Bacteriana Subaguda pós-Procedimento Odontológico",
+        category: "Infectologia / Odontologia",
+        difficulty: "Difícil",
+        demographics: "Homem, 42 anos, história de febre reumática",
+        history: "Apresenta febre baixa vespertina há 3 semanas, fadiga, fadiga e nódulos dolorosos na polpa dos dedos (Nódulos de Osler). Relata extração dentária há 1 mês sem antibioticoprofilaxia.",
+        vitalSigns: "Tax 37.9°C, Lesões de Janeway em palmas",
+        sampleType: "Hemoculturas seriadas",
+        clues: [
+          { title: "Bacterioscopia (Gram)", value: "Cocos Gram-positivos em cadeias", icon: "fa-bacteria" },
+          { title: "Teste da Catalase", value: "NEGATIVO", icon: "fa-vial" },
+          { title: "Padrão de Hemólise", value: "ALFA-hemólise (ou Gama-hemólise em alguns casos)", icon: "fa-circle-dot" },
+          { title: "Optoquina & Solubilidade Bile", value: "RESISTENTE à Optoquina / INSOLÚVEL em Bile", icon: "fa-shield-halved" }
+        ],
+        options: [
+          "Streptococcus pneumoniae",
+          "Streptococcus do Grupo Viridans (ex: S. sanguinis, S. mutans)",
+          "Enterococcus faecalis",
+          "Staphylococcus aureus"
+        ],
+        correctIndex: 1,
+        explanation: "<strong>Streptococcus do Grupo Viridans</strong> pertencem à microbiota oral. Ao entrarem na circulação após procedimentos dentários, sobem em válvulas cardíacas previamente lesadas. Diferem do pneumococo por serem resistentes à optoquina e insolúveis em bile."
+      }
+    ];
+
+    const QUIZ_QUESTIONS = [
+      {
+        question: "Qual teste é utilizado primariamente para diferenciar a família Staphylococcaceae da Streptococcaceae?",
+        options: [
+          "Teste da Coagulase",
+          "Teste da Catalase",
+          "Teste da Bacitracina",
+          "Coloração de Ziehl-Neelsen"
+        ],
+        correctIndex: 1,
+        explanation: "A catalase diferencia Staphylococcaceae (catalase positiva) de Streptococcaceae (catalase negativa)."
+      },
+      {
+        question: "Qual a espécie de Staphylococcus caracteristicamente COAGULASE POSITIVA?",
+        options: [
+          "Staphylococcus epidermidis",
+          "Staphylococcus saprophyticus",
+          "Staphylococcus aureus",
+          "Staphylococcus haemolyticus"
+        ],
+        correctIndex: 2,
+        explanation: "Staphylococcus aureus é a principal espécie patogênica coagulase positiva humana."
+      },
+      {
+        question: "O Streptococcus pyogenes (Grupo A de Lancefield) é caracterizado microbiologicamente por ser:",
+        options: [
+          "Alfa-hemolítico e sensível à optoquina",
+          "Beta-hemolítico e sensível à bacitracina",
+          "Gama-hemolítico e resistente à novobiocina",
+          "Beta-hemolítico e positivo no teste de CAMP"
+        ],
+        correctIndex: 1,
+        explanation: "S. pyogenes é beta-hemolítico e sensível ao disco de Bacitracina (Disco A)."
+      },
+      {
+        question: "Qual teste bioquímico confirma Streptococcus pneumoniae diferenciando-o dos estreptococos do grupo Viridans?",
+        options: [
+          "Sensibilidade à Novobiocina",
+          "Sensibilidade à Optoquina e Solubilidade em Bile",
+          "Produção de Coagulase e fermentação do manitol",
+          "Teste do PYR negativo"
+        ],
+        correctIndex: 1,
+        explanation: "O Pneumococo é sensível à Optoquina e solúvel em sais biliares, enquanto o grupo Viridans é resistente."
+      },
+      {
+        question: "O teste de CAMP (forma de ponta de flecha com S. aureus) é diagnóstico para qual bactéria?",
+        options: [
+          "Streptococcus agalactiae (Grupo B)",
+          "Streptococcus pyogenes (Grupo A)",
+          "Staphylococcus epidermidis",
+          "Streptococcus pneumoniae"
+        ],
+        correctIndex: 0,
+        explanation: "Streptococcus agalactiae produz o fator CAMP, que acentua a beta-hemólise do S. aureus."
+      }
+    ];
+
+    /* ===================================================================
+       3. MAIN GAME APPLICATION ENGINE
+       =================================================================== */
+    class GameApp {
+      constructor() {
+        this.currentMode = 'detective'; // 'detective' or 'quiz'
+        this.currentCaseIndex = 0;
+        this.currentQuizIndex = 0;
+        this.score = 0;
+        this.streak = 0;
+        this.maxStreak = 0;
+        this.revealedClues = [];
+        this.timer = null;
+        this.timeLeft = 0;
+        this.totalQuestions = 0;
+        this.correctAnswersCount = 0;
+
+        // Presenter shortcuts
+        this.setupKeyboardShortcuts();
+      }
+
+      init() {
+        this.renderQRCode();
+        this.showScreen('welcome');
+        document.getElementById('app-url-text').textContent = window.location.href.replace('http://', '').replace('https://', '');
+      }
+
+      showScreen(screenId) {
+        ['welcome', 'detective', 'quiz', 'summary'].forEach(id => {
+          document.getElementById(`screen-${id}`).classList.add('hidden');
+        });
+        document.getElementById(`screen-${screenId}`).classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      toggleSound() {
+        audio.enabled = !audio.enabled;
+        const icon = document.getElementById('audio-icon');
+        icon.className = audio.enabled ? "fa-solid fa-volume-high" : "fa-solid fa-volume-xmark text-red-400";
+      }
+
+      toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(err => console.log(err));
+        } else {
+          if (document.exitFullscreen) document.exitFullscreen();
+        }
+      }
+
+      openGuide() {
+        document.getElementById('guide-modal').classList.remove('hidden');
+      }
+
+      closeGuide() {
+        document.getElementById('guide-modal').classList.add('hidden');
+      }
+
+      copyLink() {
+        const text = window.location.href;
+        navigator.clipboard.writeText(text).then(() => {
+          alert('Link do aplicativo copiado para a área de transferência!');
+        }).catch(() => {
+          document.execCommand('copy');
+        });
+      }
+
+      renderQRCode() {
+        const qrContainer = document.getElementById("qrcode");
+        qrContainer.innerHTML = "";
+        try {
+          new QRCode(qrContainer, {
+            text: window.location.href,
+            width: 72,
+            height: 72,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.L
+          });
+        } catch (e) {
+          qrContainer.innerHTML = "<i class='fa-solid fa-qrcode text-3xl text-black'></i>";
+        }
+      }
+
+      /* --- GAMEPLAY LOGIC --- */
+      startMode(mode) {
+        this.currentMode = mode;
+        this.score = 0;
+        this.streak = 0;
+        this.maxStreak = 0;
+        this.correctAnswersCount = 0;
+        this.updateHUD();
+
+        if (mode === 'detective') {
+          this.currentCaseIndex = 0;
+          this.totalQuestions = CLINICAL_CASES.length;
+          this.showScreen('detective');
+          this.loadCase(this.currentCaseIndex);
+        } else {
+          this.currentQuizIndex = 0;
+          this.totalQuestions = QUIZ_QUESTIONS.length;
+          this.showScreen('quiz');
+          this.loadQuiz(this.currentQuizIndex);
+        }
+      }
+
+      restartCurrentMode() {
+        this.startMode(this.currentMode);
+      }
+
+      updateHUD() {
+        document.getElementById('hud-score').textContent = this.score;
+        document.getElementById('hud-streak').textContent = this.streak;
+      }
+
+      /* DETECTIVE MODE METHODS */
+      loadCase(index) {
+        const c = CLINICAL_CASES[index];
+        this.revealedClues = [];
+
+        // Update Case Info
+        document.getElementById('case-counter').textContent = `Caso ${index + 1} / ${CLINICAL_CASES.length}`;
+        document.getElementById('game-progress-bar').style.width = `${((index) / CLINICAL_CASES.length) * 100}%`;
+
+        document.getElementById('case-category').textContent = c.category;
+        document.getElementById('case-difficulty').textContent = `Nível: ${c.difficulty}`;
+        document.getElementById('case-title').textContent = c.title;
+        document.getElementById('patient-demographics').textContent = c.demographics;
+        document.getElementById('patient-history').textContent = c.history;
+        document.getElementById('vital-signs').textContent = c.vitalSigns;
+        document.getElementById('sample-type').textContent = c.sampleType;
+
+        // Hide explanation drawer
+        document.getElementById('explanation-box').classList.add('hidden');
+
+        // Render Clues Cards
+        const cluesContainer = document.getElementById('clues-container');
+        cluesContainer.innerHTML = '';
+
+        c.clues.forEach((clue, i) => {
+          const cardHtml = `
+            <div id="clue-card-${i}" onclick="app.revealClue(${i})" class="perspective-1000 cursor-pointer h-24">
+              <div id="clue-inner-${i}" class="transform-style-3d w-full h-full relative rounded-xl border border-gray-800 bg-gray-900/90 p-3 flex flex-col justify-between hover:border-cyan-500/50 transition shadow">
+                <!-- Front Side (Hidden) -->
+                <div class="absolute inset-0 backface-hidden p-3 flex items-center justify-between bg-gray-900 rounded-xl">
+                  <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-lg bg-cyan-950 text-cyan-400 flex items-center justify-center text-sm font-bold">
+                      <i class="fa-solid ${clue.icon}"></i>
+                    </div>
+                    <div>
+                      <span class="text-xs font-bold text-gray-200 block">${clue.title}</span>
+                      <span class="text-[10px] text-cyan-400 font-mono">Clique para revelar pista</span>
+                    </div>
+                  </div>
+                  <i class="fa-solid fa-lock text-gray-600 text-xs"></i>
+                </div>
+                <!-- Back Side (Revealed) -->
+                <div class="absolute inset-0 backface-hidden rotate-y-180 p-3 bg-gradient-to-br from-gray-900 to-cyan-950/80 border border-cyan-500/50 rounded-xl flex flex-col justify-between">
+                  <span class="text-[10px] font-mono text-cyan-300 uppercase font-bold">${clue.title}</span>
+                  <p class="text-xs font-bold text-white leading-tight">${clue.value}</p>
+                  <span class="text-[9px] text-emerald-400 font-mono flex items-center"><i class="fa-solid fa-check mr-1"></i> Revelado</span>
+                </div>
+              </div>
+            </div>
+          `;
+          cluesContainer.innerHTML += cardHtml;
+        });
+
+        // Render Options
+        const optionsContainer = document.getElementById('options-container');
+        optionsContainer.innerHTML = '';
+
+        c.options.forEach((opt, i) => {
+          const btnHtml = `
+            <button id="opt-btn-${i}" onclick="app.answerCase(${i})" class="w-full text-left p-3.5 rounded-xl bg-gray-900/90 border border-gray-800 hover:border-cyan-500 hover:bg-gray-800/80 text-xs sm:text-sm font-bold text-gray-200 transition flex items-center justify-between group">
+              <span class="flex items-center space-x-2">
+                <span class="w-6 h-6 rounded-md bg-gray-800 group-hover:bg-cyan-500 group-hover:text-black text-gray-400 font-mono text-xs flex items-center justify-center font-bold transition">${String.fromCharCode(65 + i)}</span>
+                <span>${opt}</span>
+              </span>
+              <i class="fa-solid fa-chevron-right text-gray-600 group-hover:text-cyan-400 text-xs transition"></i>
+            </button>
+          `;
+          optionsContainer.innerHTML += btnHtml;
+        });
+      }
+
+      revealClue(clueIndex) {
+        if (this.revealedClues.includes(clueIndex)) return;
+
+        audio.playFlip();
+        this.revealedClues.push(clueIndex);
+        const inner = document.getElementById(`clue-inner-${clueIndex}`);
+        if (inner) {
+          inner.classList.add('rotate-y-180');
+        }
+      }
+
+      revealNextClue() {
+        const c = CLINICAL_CASES[this.currentCaseIndex];
+        for (let i = 0; i < c.clues.length; i++) {
+          if (!this.revealedClues.includes(i)) {
+            this.revealClue(i);
+            break;
+          }
+        }
+      }
+
+      answerCase(selectedIndex) {
+        const c = CLINICAL_CASES[this.currentCaseIndex];
+        const isCorrect = selectedIndex === c.correctIndex;
+
+        // Reveal all clues
+        c.clues.forEach((_, i) => this.revealClue(i));
+
+        // Disable all option buttons
+        c.options.forEach((_, i) => {
+          const btn = document.getElementById(`opt-btn-${i}`);
+          if (btn) {
+            btn.disabled = true;
+            if (i === c.correctIndex) {
+              btn.className = "w-full text-left p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-500 text-emerald-300 text-xs sm:text-sm font-bold flex items-center justify-between";
+            } else if (i === selectedIndex && !isCorrect) {
+              btn.className = "w-full text-left p-3.5 rounded-xl bg-red-950/80 border border-red-500 text-red-300 text-xs sm:text-sm font-bold flex items-center justify-between";
+            } else {
+              btn.className = "w-full text-left p-3.5 rounded-xl bg-gray-900/50 border border-gray-800 text-gray-500 text-xs sm:text-sm font-bold flex items-center justify-between opacity-50";
+            }
+          }
+        });
+
+        if (isCorrect) {
+          audio.playSuccess();
+          this.score += 150 + (4 - this.revealedClues.length) * 25;
+          this.streak++;
+          if (this.streak > this.maxStreak) this.maxStreak = this.streak;
+          this.correctAnswersCount++;
+
+          document.getElementById('result-badge-icon').className = "w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl";
+          document.getElementById('result-badge-icon').innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+          document.getElementById('result-title').textContent = "Diagnóstico Correto!";
+          document.getElementById('result-title').className = "font-extrabold text-emerald-400 text-lg";
+        } else {
+          audio.playError();
+          this.streak = 0;
+
+          document.getElementById('result-badge-icon').className = "w-10 h-10 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center text-xl";
+          document.getElementById('result-badge-icon').innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+          document.getElementById('result-title').textContent = "Diagnóstico Incorreto!";
+          document.getElementById('result-title').className = "font-extrabold text-red-400 text-lg";
+        }
+
+        this.updateHUD();
+
+        // Show Explanation Box
+        document.getElementById('result-explanation').innerHTML = `
+          <p class="font-bold text-white mb-1">Etiologia: ${c.options[c.correctIndex]}</p>
+          <p class="text-xs text-gray-300">${c.explanation}</p>
+        `;
+        document.getElementById('explanation-box').classList.remove('hidden');
+        document.getElementById('explanation-box').scrollIntoView({ behavior: 'smooth' });
+      }
+
+      nextCase() {
+        this.currentCaseIndex++;
+        if (this.currentCaseIndex < CLINICAL_CASES.length) {
+          this.loadCase(this.currentCaseIndex);
+        } else {
+          this.showSummary();
+        }
+      }
+
+      /* QUIZ MODE METHODS */
+      loadQuiz(index) {
+        const q = QUIZ_QUESTIONS[index];
+        document.getElementById('quiz-counter').textContent = `Questão ${index + 1} / ${QUIZ_QUESTIONS.length}`;
+        document.getElementById('quiz-question').textContent = q.question;
+        document.getElementById('quiz-feedback').classList.add('hidden');
+
+        const optsContainer = document.getElementById('quiz-options');
+        optsContainer.innerHTML = '';
+
+        q.options.forEach((opt, i) => {
+          optsContainer.innerHTML += `
+            <button id="quiz-opt-${i}" onclick="app.answerQuiz(${i})" class="w-full text-left p-4 rounded-xl bg-gray-900/90 border border-gray-800 hover:border-emerald-500 text-sm font-semibold text-gray-200 transition flex items-center justify-between">
+              <span>${opt}</span>
+              <span class="w-6 h-6 rounded-full bg-gray-800 text-gray-400 text-xs font-mono flex items-center justify-center">${i + 1}</span>
+            </button>
+          `;
+        });
+
+        this.startQuizTimer(15);
+      }
+
+      startQuizTimer(seconds) {
+        clearInterval(this.timer);
+        this.timeLeft = seconds;
+        document.getElementById('quiz-timer').textContent = `${this.timeLeft}s`;
+
+        this.timer = setInterval(() => {
+          this.timeLeft--;
+          document.getElementById('quiz-timer').textContent = `${this.timeLeft}s`;
+          audio.playTick();
+
+          if (this.timeLeft <= 0) {
+            clearInterval(this.timer);
+            this.answerQuiz(-1); // Time out
+          }
+        }, 1000);
+      }
+
+      answerQuiz(selectedIndex) {
+        clearInterval(this.timer);
+        const q = QUIZ_QUESTIONS[this.currentQuizIndex];
+        const isCorrect = selectedIndex === q.correctIndex;
+
+        const feedback = document.getElementById('quiz-feedback');
+        feedback.classList.remove('hidden');
+
+        if (isCorrect) {
+          audio.playSuccess();
+          this.score += 100 + this.timeLeft * 10;
+          this.streak++;
+          if (this.streak > this.maxStreak) this.maxStreak = this.streak;
+          this.correctAnswersCount++;
+
+          feedback.className = "glass-card p-4 rounded-xl text-sm leading-relaxed border border-emerald-500/50 bg-emerald-950/30 text-emerald-300";
+          feedback.innerHTML = `<strong><i class="fa-solid fa-check-circle mr-1"></i> Resposta Correta!</strong> ${q.explanation}`;
+        } else {
+          audio.playError();
+          this.streak = 0;
+
+          feedback.className = "glass-card p-4 rounded-xl text-sm leading-relaxed border border-red-500/50 bg-red-950/30 text-red-300";
+          feedback.innerHTML = `<strong><i class="fa-solid fa-circle-xmark mr-1"></i> Resposta Incorreta!</strong> A opção correta é: <em>${q.options[q.correctIndex]}</em>. ${q.explanation}`;
+        }
+
+        this.updateHUD();
+
+        // Highlight buttons
+        q.options.forEach((_, i) => {
+          const btn = document.getElementById(`quiz-opt-${i}`);
+          if (btn) {
+            btn.disabled = true;
+            if (i === q.correctIndex) btn.classList.add('border-emerald-500', 'bg-emerald-950/60');
+          }
+        });
+
+        setTimeout(() => {
+          this.currentQuizIndex++;
+          if (this.currentQuizIndex < QUIZ_QUESTIONS.length) {
+            this.loadQuiz(this.currentQuizIndex);
+          } else {
+            this.showSummary();
+          }
+        }, 2500);
+      }
+
+      /* SUMMARY SCREEN */
+      showSummary() {
+        this.showScreen('summary');
+        document.getElementById('final-score').textContent = this.score;
+        document.getElementById('final-streak').textContent = this.maxStreak;
+
+        const accuracy = Math.round((this.correctAnswersCount / this.totalQuestions) * 100) || 0;
+        document.getElementById('final-accuracy').textContent = `${accuracy}%`;
+
+        let subtitle = "Aprimore suas habilidades de diferenciação de bacterioscopia e testes laboratoriais!";
+        if (accuracy >= 80) subtitle = "Excelente desempenho! Você dominou a diferenciação microbiológica de Staph e Strep!";
+        else if (accuracy >= 50) subtitle = "Bom trabalho! Reveja os testes de Sensibilidade e Hemólise para gabaritar.";
+
+        document.getElementById('summary-subtitle').textContent = subtitle;
+        document.getElementById('game-progress-bar').style.width = '100%';
+      }
+
+      /* KEYBOARD SHORTCUTS FOR PRESENTER */
+      setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+          if (e.code === 'Space') {
+            // Space bar reveals next clue in detective mode
+            if (!document.getElementById('screen-detective').classList.contains('hidden')) {
+              e.preventDefault();
+              this.revealNextClue();
+            }
+          } else if (e.code === 'ArrowRight') {
+            // Next case shortcut
+            if (!document.getElementById('explanation-box').classList.contains('hidden')) {
+              this.nextCase();
+            }
+          }
+        });
+      }
+    }
+
+    // Initialize App on Window Load
+    let app;
+    window.onload = function() {
+      app = new GameApp();
+      app.init();
+    };
+  </script>
+</body>
+</html>
